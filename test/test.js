@@ -93,17 +93,12 @@ function performRequest(request, doAssert) {
 
 function forAllPermutations(doTest) {
   _
-    .chain(["openjdk8", "openjdk9", "openjdk10"])
+    .chain(["openjdk8", "openjdk9", "openjdk10", "openjdk11"])
     .each(function (jdk) {
       _
         .chain(["nightly", "releases"])
         .each(function (release) {
-          // Remove when we produce openjdk9 releases
-          if (jdk === "openjdk9" && release === "releases") {
-            return;
-          }
           doTest(jdk, release);
-
         })
     });
 }
