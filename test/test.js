@@ -3,6 +3,10 @@ const _ = require('underscore');
 const fs = require('fs');
 const Q = require('q');
 
+const mocha = require('mocha');
+const describe = mocha.describe;
+const it = mocha.it;
+
 setUpTestCache();
 
 function setUpTestCache() {
@@ -12,21 +16,21 @@ function setUpTestCache() {
   }
 
   function updateCacheTimes(cacheData) {
-    for (var cacheEntry in cacheData) {
+    for (const cacheEntry in cacheData) {
       if (cacheData[cacheEntry].hasOwnProperty("cacheTime")) {
         cacheData[cacheEntry].cacheTime = Date.now() + 60 * 1000;
       }
     }
   }
 
-  var cacheData = JSON.parse(fs.readFileSync('./test/asset/cache/newCache.cache.json'));
-  updateCacheTimes(cacheData);
-  fs.writeFileSync('./cache/newCache.cache.json', JSON.stringify(cacheData));
+  const newCacheData = JSON.parse(fs.readFileSync('./test/asset/cache/newCache.cache.json'));
+  updateCacheTimes(newCacheData);
+  fs.writeFileSync('./cache/newCache.cache.json', JSON.stringify(newCacheData));
 
 
-  cacheData = JSON.parse(fs.readFileSync('./test/asset/cache/oldCache.cache.json'));
-  updateCacheTimes(cacheData);
-  fs.writeFileSync('./cache/oldCache.cache.json', JSON.stringify(cacheData));
+  const oldCacheData = JSON.parse(fs.readFileSync('./test/asset/cache/oldCache.cache.json'));
+  updateCacheTimes(oldCacheData);
+  fs.writeFileSync('./cache/oldCache.cache.json', JSON.stringify(oldCacheData));
 
   console.log('Test cache setup')
 }
@@ -53,15 +57,15 @@ function mockRequest(requestType, buildtype, version, openjdk_impl, os, arch, re
 }
 
 function mockRequestWithSingleQuery(requestType, buildtype, version, queryName, queryValue) {
-  let request = mockRequest(requestType, buildtype, version);
+  const request = mockRequest(requestType, buildtype, version);
   request.query[queryName] = queryValue;
   return request;
 }
 
 function performRequest(request, doAssert) {
-  var codePromise = Q.defer();
-  var msgPromise = Q.defer();
-  var res = {
+  const codePromise = Q.defer();
+  const msgPromise = Q.defer();
+  const res = {
     status: function (code) {
       codePromise.resolve(code);
     },
@@ -81,8 +85,8 @@ function performRequest(request, doAssert) {
   return Q
     .allSettled([codePromise.promise, msgPromise.promise])
     .then(function (result) {
-      var code = result[0].value;
-      var msg = result[1].value;
+      const code = result[0].value;
+      const msg = result[1].value;
       doAssert(code, msg);
     });
 }
@@ -122,7 +126,7 @@ describe('200 for simple case', function () {
     it(jdk + ' ' + release, function () {
       const request = mockRequest("info", release, jdk);
       return performRequest(request, function (code, msg) {
-        assert.equal(200, code);
+        assert.strictEqual(code, 200);
       });
     })
   });
@@ -135,8 +139,9 @@ describe('has all expected properties on binary assets', function () {
 
       const request = mockRequest("info", release, jdk);
       return performRequest(request, function (code, msg) {
-        assert.equal(200, code);
-        let releases
+        assert.strictEqual(code, 200);
+
+        let releases;
         try {
           releases = JSON.parse(msg);
         } catch (e) {
@@ -162,7 +167,7 @@ describe('has all expected properties on binary assets', function () {
               "os",
               "version"])
               .each(function (property) {
-                assert.equal(true, binary.hasOwnProperty(property), "missing property " + property + " on json: " + JSON.stringify(binary));
+                assert.strictEqual(binary.hasOwnProperty(property), true, "missing property " + property + " on json: " + JSON.stringify(binary));
               });
           })
       });
@@ -175,15 +180,15 @@ function checkCanFilterOnProperty(propertyName, returnedPropertyName, propertyVa
     const request = mockRequestWithSingleQuery("info", release, jdk, propertyName, propertyValue);
     it('Checking can filter for params: ' + jdk + ' ' + release + ' ' + propertyName + ' ' + propertyValue, function () {
       return performRequest(request, function (code, msg) {
-        assert.equal(200, code);
-        let releases = JSON.parse(msg);
+        assert.strictEqual(code, 200);
+        const releases = JSON.parse(msg);
         _.chain(releases)
           .map(function (release) {
             return release.binaries;
           })
           .flatten()
           .each(function (binary) {
-            assert.equal(propertyValue, binary[returnedPropertyName]);
+            assert.strictEqual(binary[returnedPropertyName], propertyValue);
           })
       });
     })
@@ -226,27 +231,27 @@ describe('filters releases correctly', function () {
   forAllPermutations(function (jdk, release) {
     const request = mockRequest("info", release, jdk, "hotspot", "linux", "x64", undefined, "jdk");
 
-    var isRelease = release.indexOf("releases") >= 0;
+    const isRelease = release.indexOf("releases") >= 0;
 
     it('release is set correctly ' + JSON.stringify(request), function () {
       return performRequest(request, function (code, data) {
-        let releases = JSON.parse(data);
+        const releases = JSON.parse(data);
         _.chain(releases)
           .each(function (release) {
             if (release.hasOwnProperty('binaries')) {
               _.chain(releases.binaries)
                 .each(function (binary) {
-                  var isNightlyRepo = binary.binary_link.indexOf("-nightly") >= 0;
-                  var isBinaryRepo = binary.binary_link.indexOf("-binaries") >= 0;
+                  const isNightlyRepo = binary.binary_link.indexOf("-nightly") >= 0;
+                  const isBinaryRepo = binary.binary_link.indexOf("-binaries") >= 0;
                   if (isRelease) {
-                    assert.equal(false, isNightlyRepo)
+                    assert.strictEqual(isNightlyRepo, false)
                   } else {
-                    assert.equal(true, isNightlyRepo || isBinaryRepo)
+                    assert.strictEqual(isNightlyRepo || isBinaryRepo, true)
                   }
                 })
             }
 
-            assert.equal(isRelease, release.release);
+            assert.strictEqual(release.release, isRelease);
           })
       })
     });
@@ -257,14 +262,14 @@ describe('filters heap_size', function () {
   const request = mockRequest("info", "nightly", "openjdk8", undefined, undefined, undefined, undefined, undefined, "large");
   it('only large heaps are returned', function () {
     return performRequest(request, function (code, data) {
-      let releases = JSON.parse(data);
+      const releases = JSON.parse(data);
       _.chain(releases)
         .each(function (release) {
           if (release.hasOwnProperty('binaries')) {
             _.chain(releases.binaries)
               .each(function (binary) {
-                assert.equal(true, binary.binary_link.indexOf("linuxXL") >= 0);
-                assert.equal("large", binary.heap_size);
+                assert.strictEqual(binary.binary_link.indexOf("linuxXL") >= 0, true);
+                assert.strictEqual(binary.heap_size, "large");
               })
           }
         })
@@ -276,13 +281,13 @@ describe('does not show linuxlh as an os', function () {
   it("is not linuxlh", function () {
     const request = mockRequest("info", "releases", "openjdk8", "openj9", undefined, undefined, undefined, undefined, undefined);
     return performRequest(request, function (code, data) {
-      let releases = JSON.parse(data);
+      const releases = JSON.parse(data);
       _.chain(releases)
         .each(function (release) {
           if (release.hasOwnProperty('binaries')) {
             _.chain(releases.binaries)
               .each(function (binary) {
-                assert.notEqual("linuxlh", binary.os);
+                assert.notStrictEqual(binary.os.toLowerCase(), "linuxlh");
               })
           }
         })
@@ -296,12 +301,12 @@ describe('latestAssets returns correct results', function () {
 
     it("returns correct assets", function () {
       return performRequest(request, function (code, data) {
-        let binaries = JSON.parse(data);
+        const binaries = JSON.parse(data);
         _.chain(binaries)
           .each(function (binary) {
-            assert.equal(binary.openjdk_impl, "hotspot");
-            assert.equal(binary.os, "linux");
-            assert.equal(binary.architecture, "x64");
+            assert.strictEqual(binary.openjdk_impl, "hotspot");
+            assert.strictEqual(binary.os, "linux");
+            assert.strictEqual(binary.architecture, "x64");
           })
       });
     })
@@ -312,8 +317,7 @@ describe('gives 404 for invalid version', function () {
   it("returns 404", function () {
     const request = mockRequest("info", "releases", "openjdk50", "hotspot", undefined, undefined, undefined, undefined, undefined);
     return performRequest(request, function (code, data) {
-      assert.equal(404, code);
+      assert.strictEqual(code, 404);
     });
   })
 });
-
