@@ -106,18 +106,6 @@ describe('v2 API', () => {
     });
   }
 
-  function forAllPermutations(doTest) {
-    _
-    .chain(jdkVersions)
-    .each(jdk => {
-      _
-      .chain(releaseTypes)
-      .each(release => {
-        doTest(jdk, release);
-      });
-    });
-  }
-
   function getAllPermutations() {
     const permutations = [];
     jdkVersions.forEach(jdkVersion => {
@@ -142,8 +130,7 @@ describe('v2 API', () => {
 
   describe('returns HTTP status code', () => {
     describe('200', () => {
-      describe('for simple cases', () => {
-
+      describe('for release info', () => {
         it.each(getAllPermutations())('%s %s', (jdk, release) => {
           const request = mockRequest("info", release, jdk);
 
@@ -156,14 +143,11 @@ describe('v2 API', () => {
 
     describe('302', () => {
       describe('for binary redirects', () => {
-        forAllPermutations((jdk, release) => {
+        it.each(getAllPermutations())('%s %s', (jdk, release) => {
           const request = mockRequest("binary", release, jdk, "hotspot", "linux", "x64", "latest", "jdk");
-          const requestParams = JSON.stringify(request);
 
-          it(`with request: ${requestParams}`, () => {
-            return performRequest(request, (code, msg) => {
-              expect(code).toEqual(302);
-            });
+          return performRequest(request, (code, msg) => {
+            expect(code).toEqual(302);
           });
         });
       });
@@ -194,29 +178,27 @@ describe('v2 API', () => {
         "version",
       ];
 
-      forAllPermutations((jdk, release) => {
-        it(`${jdk} ${release}`, () => {
-          const request = mockRequest("info", release, jdk);
-          return performRequest(request, (code, msg) => {
-            expect(code).toEqual(200);
+      it.each(getAllPermutations())('%s %s', (jdk, release) => {
+        const request = mockRequest("info", release, jdk);
+        return performRequest(request, (code, msg) => {
+          expect(code).toEqual(200);
 
-            let releases;
-            try {
-              releases = JSON.parse(msg);
-            } catch (e) {
-              throw Error(`Failed to read: ${msg}. Exception: ${e}`);
-            }
+          let releases;
+          try {
+            releases = JSON.parse(msg);
+          } catch (e) {
+            throw Error(`Failed to read: ${msg}. Exception: ${e}`);
+          }
 
-            _.chain(releases)
-            .map(release => release.binaries)
-            .flatten()
-            .each(binary => {
-              _.chain(expectedBinaryProperties)
-              .each(property => {
-                expect(binary).toHaveProperty(property);
-              });
-            })
-          });
+          _.chain(releases)
+          .map(release => release.binaries)
+          .flatten()
+          .each(binary => {
+            _.chain(expectedBinaryProperties)
+            .each(property => {
+              expect(binary).toHaveProperty(property);
+            });
+          })
         });
       });
     });
@@ -225,22 +207,34 @@ describe('v2 API', () => {
   describe('can filter by properties', () => {
     // request http://localhost:3000/info/release/openjdk8?os=windows
     describe('os', () => {
-      checkCanFilterOnProperty("os", "os", "windows");
+      it.each(getAllPermutations())('%s %s', (jdk, release) => {
+        const request = mockRequestWithSingleQuery("info", release, jdk, 'os', 'windows');
+        return checkBinaryProperty(request, 'os', 'windows');
+      });
     });
 
     // request http://localhost:3000/info/release/openjdk8?openjdk_impl=hotspot
     describe('openjdk_impl', () => {
-      checkCanFilterOnProperty("openjdk_impl", "openjdk_impl", "hotspot")
+      it.each(getAllPermutations())('%s %s', (jdk, release) => {
+        const request = mockRequestWithSingleQuery("info", release, jdk, 'openjdk_impl', 'hotspot');
+        return checkBinaryProperty(request, 'openjdk_impl', 'hotspot');
+      });
     });
 
     // request http://localhost:3000/info/release/openjdk8?arch=x64
     describe('arch', () => {
-      checkCanFilterOnProperty("arch", "architecture", "x64")
+      it.each(getAllPermutations())('%s %s', (jdk, release) => {
+        const request = mockRequestWithSingleQuery("info", release, jdk, 'arch', 'x64');
+        return checkBinaryProperty(request, 'architecture', 'x64');
+      });
     });
 
     // request http://localhost:3000/info/release/openjdk8?type=jdk
     describe('type', () => {
-      checkCanFilterOnProperty("type", "binary_type", "jdk")
+      it.each(getAllPermutations())('%s %s', (jdk, release) => {
+        const request = mockRequestWithSingleQuery("info", release, jdk, 'type', 'jdk');
+        return checkBinaryProperty(request, 'binary_type', 'jdk');
+      });
     });
 
     function checkBinaryProperty(request, returnedPropertyName, propertyValue) {
@@ -256,43 +250,32 @@ describe('v2 API', () => {
         });
       });
     }
-
-    function checkCanFilterOnProperty(propertyName, returnedPropertyName, propertyValue) {
-      forAllPermutations((jdk, release) => {
-        const request = mockRequestWithSingleQuery("info", release, jdk, propertyName, propertyValue);
-        it(`Checking can filter for params: ${jdk} ${release} ${propertyName} ${propertyValue}`, () => {
-          return checkBinaryProperty(request, returnedPropertyName, propertyValue);
-        })
-      });
-    }
   });
 
   describe('filters releases correctly', () => {
-    forAllPermutations((jdk, release) => {
+    it.each(getAllPermutations())('%s %s', (jdk, release) => {
       const request = mockRequest("info", release, jdk, "hotspot", "linux", "x64", undefined, "jdk");
-
       const isRelease = release.indexOf("releases") >= 0;
 
-      it('release is set correctly ' + JSON.stringify(request), () => {
-        return performRequest(request, (code, data) => {
-          const releases = JSON.parse(data);
-          _.chain(releases)
-          .each(release => {
-            if (release.hasOwnProperty('binaries')) {
-              _.chain(releases.binaries)
-              .each(binary => {
-                const isNightlyRepo = binary.binary_link.indexOf("-nightly") >= 0;
-                const isBinaryRepo = binary.binary_link.indexOf("-binaries") >= 0;
-                if (isRelease) {
-                  expect(isNightlyRepo).toBe(false);
-                } else {
-                  expect(isNightlyRepo || isBinaryRepo).toBe(true);
-                }
-              });
-            }
+      return performRequest(request, (code, data) => {
+        console.log(data);
+        const releases = JSON.parse(data);
+        _.chain(releases)
+        .each(release => {
+          if (release.hasOwnProperty('binaries')) {
+            _.chain(releases.binaries)
+            .each(binary => {
+              const isNightlyRepo = binary.binary_link.indexOf("-nightly") >= 0;
+              const isBinaryRepo = binary.binary_link.indexOf("-binaries") >= 0;
+              if (isRelease) {
+                expect(isNightlyRepo).toBe(false);
+              } else {
+                expect(isNightlyRepo || isBinaryRepo).toBe(true);
+              }
+            });
+          }
 
-            expect(release.release).toEqual(isRelease);
-          });
+          expect(release.release).toEqual(isRelease);
         });
       });
     });
@@ -336,20 +319,18 @@ describe('v2 API', () => {
   });
 
   describe('latestAssets returns correct results', () => {
-    forAllPermutations((jdk, release) => {
+    it.each(getAllPermutations())('%s %s', (jdk, release) => {
       const request = mockRequest("latestAssets", release, jdk, "hotspot", "linux", "x64", undefined, undefined, undefined);
 
-      it("returns correct assets", () => {
-        return performRequest(request, (code, data) => {
-          const binaries = JSON.parse(data);
-          _.chain(binaries)
-          .each(binary => {
-            expect(binary.openjdk_impl).toEqual("hotspot");
-            expect(binary.os).toEqual("linux");
-            expect(binary.architecture).toEqual("x64");
-          })
-        });
-      })
+      return performRequest(request, (code, data) => {
+        const binaries = JSON.parse(data);
+        _.chain(binaries)
+        .each(binary => {
+          expect(binary.openjdk_impl).toEqual("hotspot");
+          expect(binary.os).toEqual("linux");
+          expect(binary.architecture).toEqual("x64");
+        })
+      });
     });
   });
 
