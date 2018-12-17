@@ -1,4 +1,3 @@
-const assert = require('assert');
 const fs = require('fs');
 const _ = require('underscore');
 const Q = require('q');
@@ -37,7 +36,7 @@ describe('v2 API', () => {
       if (apiData) {
         deferred.resolve(apiData);
       } else {
-        deferred.reject(`Could not match release string '${releaseStr}' for URL '${url}'`);
+        return deferred.reject(`Could not match release string '${releaseStr}' for URL '${url}'`);
       }
 
       return deferred.promise;
@@ -163,7 +162,7 @@ describe('v2 API', () => {
 
           it(`with request: ${requestParams}`, () => {
             return performRequest(request, (code, msg) => {
-              assert.strictEqual(code, 302);
+              expect(code).toEqual(302);
             });
           });
         });
@@ -199,13 +198,13 @@ describe('v2 API', () => {
         it(`${jdk} ${release}`, () => {
           const request = mockRequest("info", release, jdk);
           return performRequest(request, (code, msg) => {
-            assert.strictEqual(code, 200);
+            expect(code).toEqual(200);
 
             let releases;
             try {
               releases = JSON.parse(msg);
             } catch (e) {
-              assert.fail("Failed to read :" + msg)
+              throw Error(`Failed to read: ${msg}. Exception: ${e}`);
             }
 
             _.chain(releases)
@@ -246,13 +245,14 @@ describe('v2 API', () => {
 
     function checkBinaryProperty(request, returnedPropertyName, propertyValue) {
       return performRequest(request, (code, msg) => {
-        assert.strictEqual(code, 200);
+        expect(code).toEqual(200);
+
         const releases = JSON.parse(msg);
         _.chain(releases)
         .map(release => release.binaries)
         .flatten()
         .each(binary => {
-          assert.strictEqual(binary[returnedPropertyName], propertyValue);
+          expect(binary[returnedPropertyName]).toEqual(propertyValue);
         });
       });
     }
@@ -284,14 +284,14 @@ describe('v2 API', () => {
                 const isNightlyRepo = binary.binary_link.indexOf("-nightly") >= 0;
                 const isBinaryRepo = binary.binary_link.indexOf("-binaries") >= 0;
                 if (isRelease) {
-                  assert.strictEqual(isNightlyRepo, false)
+                  expect(isNightlyRepo).toBe(false);
                 } else {
-                  assert.strictEqual(isNightlyRepo || isBinaryRepo, true)
+                  expect(isNightlyRepo || isBinaryRepo).toBe(true);
                 }
               });
             }
 
-            assert.strictEqual(release.release, isRelease);
+            expect(release.release).toEqual(isRelease);
           });
         });
       });
@@ -308,8 +308,8 @@ describe('v2 API', () => {
           if (release.hasOwnProperty('binaries')) {
             _.chain(releases.binaries)
             .each(binary => {
-              assert.strictEqual(binary.binary_link.indexOf("linuxXL") >= 0, true);
-              assert.strictEqual(binary.heap_size, "large");
+              expect(binary.binary_link).toContain("linuxXL");
+              expect(binary.heap_size).toEqual("large");
             })
           }
         })
@@ -327,7 +327,7 @@ describe('v2 API', () => {
           if (release.hasOwnProperty('binaries')) {
             _.chain(releases.binaries)
             .each(binary => {
-              assert.notStrictEqual(binary.os.toLowerCase(), "linuxlh");
+              expect(binary.os.toLowerCase()).not.toEqual("linuxlh");
             })
           }
         })
@@ -344,9 +344,9 @@ describe('v2 API', () => {
           const binaries = JSON.parse(data);
           _.chain(binaries)
           .each(binary => {
-            assert.strictEqual(binary.openjdk_impl, "hotspot");
-            assert.strictEqual(binary.os, "linux");
-            assert.strictEqual(binary.architecture, "x64");
+            expect(binary.openjdk_impl).toEqual("hotspot");
+            expect(binary.os).toEqual("linux");
+            expect(binary.architecture).toEqual("x64");
           })
         });
       })
