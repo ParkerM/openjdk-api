@@ -5,8 +5,9 @@ const Q = require('q');
 const GitHubFileCache = require('../app/lib/github_file_cache');
 
 describe('v2 API', () => {
-  const jdkVersions = ["openjdk8", "openjdk9", "openjdk10", "openjdk11"];
-  const releaseTypes = ["nightly", "releases"];
+  const jdkVersionParams = ["openjdk8", "openjdk9", "openjdk10", "openjdk11"];
+  const requestTypeReqPaths = ["info", "binary", "latestAssets"];
+  const releaseTypeReqPaths = ["nightly", "releases"];
   const apiDataStore = loadMockApiData();
 
   let v2;
@@ -188,9 +189,18 @@ describe('v2 API', () => {
       });
 
       describe('type', () => {
-        it.each(getAllPermutations())('%s %s', (jdk, release) => {
-          const request = mockRequestWithSingleQuery("info", release, jdk, 'type', 'jdk');
-          return checkBinaryProperty(request, 'binary_type', 'jdk');
+        describe('jdk', () => {
+          it.each(getAllPermutations())('%s %s', (jdk, release) => {
+            const request = mockRequestWithSingleQuery("info", release, jdk, 'type', 'jdk');
+            return checkBinaryProperty(request, 'binary_type', 'jdk');
+          });
+        });
+
+        describe('jre', () => {
+          it.each(getAllPermutations())('%s %s', (jdk, release) => {
+            const request = mockRequestWithSingleQuery("info", release, jdk, 'type', 'jre');
+            return checkBinaryProperty(request, 'binary_type', 'jre');
+          });
         });
       });
 
@@ -261,9 +271,9 @@ describe('v2 API', () => {
     const newRepoReleaseStrs = [];
     const oldRepoReleaseStrs = [];
 
-    jdkVersions.forEach(version => {
+    jdkVersionParams.forEach(version => {
       newRepoReleaseStrs.push(`${version}-binaries`);
-      releaseTypes.forEach(type => {
+      releaseTypeReqPaths.forEach(type => {
         oldRepoReleaseStrs.push(`${version}-${type}`);
         oldRepoReleaseStrs.push(`${version}-openj9-${type}`);
       });
@@ -286,8 +296,8 @@ describe('v2 API', () => {
 
   function getAllPermutations() {
     const permutations = [];
-    jdkVersions.forEach(jdkVersion => {
-      releaseTypes.forEach(releaseType => {
+    jdkVersionParams.forEach(jdkVersion => {
+      releaseTypeReqPaths.forEach(releaseType => {
         permutations.push([jdkVersion, releaseType]);
       })
     });
