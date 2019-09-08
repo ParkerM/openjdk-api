@@ -4,9 +4,6 @@ const Q = require('q');
 const octokit = require('@octokit/rest')();
 const CronJob = require('cron').CronJob;
 
-// How many tasks can run in parallel.
-// 3 was chosen for the common 1 new repo, 2 old repo calls, but realistically the queue length
-// will vary over time.
 const logger = console;
 
 const LOWEST_JAVA_VERSION = 8;
@@ -61,16 +58,6 @@ function markOldReleases(oldReleases) {
     .value();
 }
 
-
-function formErrorResponse(error, response, body) {
-  return {
-    error: error,
-    response: response,
-    body: body
-  };
-}
-
-
 // This caches data returned by the github api to speed up response time and avoid going over github api rate limiting
 class GitHubFileCache {
 
@@ -94,7 +81,7 @@ class GitHubFileCache {
   }
 
   refreshCache(cache) {
-    console.log('Refresh at:', new Date());
+    logger.info('Refresh at:', new Date());
 
     return _.chain(this.repos)
       .map(repo => this.getReleaseDataFromGithub(repo, cache))
@@ -108,10 +95,10 @@ class GitHubFileCache {
         Q.allSettled(this.refreshCache(cache))
           .then(() => {
             this.cache = cache;
-            console.log("Cache refreshed")
+            logger.info("Cache refreshed")
           })
       } catch (e) {
-        console.error(e)
+        logger.error(e)
       }
     };
 
@@ -136,6 +123,7 @@ class GitHubFileCache {
     if (data === undefined) {
       return this.getReleaseDataFromGithub(repo, this.cache)
         .catch(error => {
+          logger.error(`Error getting release data from GitHub: ${error}`);
           this.cache[repo] = [];
           return [];
         })
@@ -163,7 +151,7 @@ class GitHubFileCache {
       legacyOpenj9Promise
     ])
       .catch(error => {
-        console.error("failed to get", error);
+        logger.error("failed to get", error);
         return [];
       })
       .spread(function (newData, oldHotspotData, oldOpenJ9Data) {
