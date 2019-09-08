@@ -6,7 +6,9 @@ module.exports = (jdkVersions, releaseTypes) => {
 
   const apiDataStore = loadMockApiData();
 
-  const cacheMock = new GitHubFileCache(true);
+  const cacheMock = new GitHubFileCache({
+    readAuthCreds: () => 'test-auth-token'
+  }, true);
 
   cacheMock.cachedGet = (url) => {
     const urlRe = new RegExp(/(\w*)-(openj9)?(?:-)?(\w*)/);

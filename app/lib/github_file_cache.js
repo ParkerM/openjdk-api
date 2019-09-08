@@ -1,43 +1,12 @@
 const _ = require('underscore');
-const fs = require('fs');
 const Q = require('q');
-const octokit = require('@octokit/rest')();
+const Octokit = require('@octokit/rest');
 const CronJob = require('cron').CronJob;
 
 const logger = console;
 
 const LOWEST_JAVA_VERSION = 8;
 const HIGHEST_JAVA_VERSION = 12;
-
-function readAuthCreds() {
-  try {
-    logger.log("Reading auth");
-    var token;
-
-
-    if (fs.existsSync('/home/jenkins/github.auth')) {
-      token = fs.readFileSync('/home/jenkins/github.auth').toString("ascii").trim();
-    } else if (process.env.GITHUB_TOKEN) {
-      console.log("Using AUTH from GITHUB_TOKEN")
-      token = process.env.GITHUB_TOKEN
-    }
-
-    if (token !== undefined) {
-      octokit.authenticate({
-        type: 'token',
-        token: token
-      });
-
-      return true
-    }
-
-  } catch (e) {
-    //ignore
-    logger.warn("No github creds found");
-  }
-
-  return false;
-}
 
 function getCooldown(auth) {
   if (auth) {
@@ -61,8 +30,11 @@ function markOldReleases(oldReleases) {
 // This caches data returned by the github api to speed up response time and avoid going over github api rate limiting
 class GitHubFileCache {
 
-  constructor(disableCron) {
-    this.auth = readAuthCreds();
+  constructor(authService, disableCron) {
+    this.auth = authService.readAuthCreds();
+    this.octokit = Octokit({
+      auth: this.auth
+    });
     this.cache = {};
     this.repos = _.chain(_.range(LOWEST_JAVA_VERSION, HIGHEST_JAVA_VERSION + 1))
       .map(num => {
@@ -106,7 +78,7 @@ class GitHubFileCache {
   }
 
   getReleaseDataFromGithub(repo, cache) {
-    return octokit
+    return this.octokit
       .paginate(`GET /repos/AdoptOpenJDK/${repo}/releases`, {
         owner: 'AdoptOpenJDK',
         repo: repo

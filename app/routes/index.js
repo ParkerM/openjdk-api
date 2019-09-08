@@ -4,8 +4,10 @@ module.exports = function (app) {
     next();
   });
 
+  const GitHubAuthService = require('../lib/github_auth_service');
+  const authService = new GitHubAuthService();
   const GitHubFileCache = require('../lib/github_file_cache');
-  const cache = new GitHubFileCache(false);
+  const cache = new GitHubFileCache(authService, false);
 
   // API version 2
   // Examples:
