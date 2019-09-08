@@ -1,6 +1,6 @@
 const fs = require('fs');
 const Q = require('q');
-const GitHubFileCache = require('../app/lib/github_file_cache');
+const GitHubFileCache = require('../../app/lib/github_file_cache');
 
 module.exports = (jdkVersions, releaseTypes) => {
 
