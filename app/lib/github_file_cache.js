@@ -7,6 +7,7 @@ const logger = console;
 
 const LOWEST_JAVA_VERSION = 8;
 const HIGHEST_JAVA_VERSION = 12;
+const defaultOptions = {minJavaVersion: LOWEST_JAVA_VERSION, maxJavaVersion: HIGHEST_JAVA_VERSION};
 
 function getCooldown(auth) {
   if (auth) {
@@ -27,25 +28,24 @@ function markOldReleases(oldReleases) {
     .value();
 }
 
+const range = (start, stop, step = 1) =>
+  Array(Math.ceil((stop - start) / step)).fill(start).map((x, y) => x + y * step);
+
 // This caches data returned by the github api to speed up response time and avoid going over github api rate limiting
 class GitHubFileCache {
 
-  constructor(authService, disableCron) {
+  constructor(authService, disableCron, options = defaultOptions) {
+    this.cache = {};
+    this.repos = range(options.minJavaVersion, options.maxJavaVersion + 1)
+      .flatMap(num => [
+        `openjdk${num}-openj9-nightly`,
+        `openjdk${num}-nightly`,
+        `openjdk${num}-binaries`
+      ]);
     this.auth = authService.readAuthCreds();
     this.octokit = Octokit({
       auth: this.auth
     });
-    this.cache = {};
-    this.repos = _.chain(_.range(LOWEST_JAVA_VERSION, HIGHEST_JAVA_VERSION + 1))
-      .map(num => {
-        return [
-          `openjdk${num}-openj9-nightly`,
-          `openjdk${num}-nightly`,
-          `openjdk${num}-binaries`
-        ]
-      })
-      .flatten()
-      .values();
 
     if (disableCron !== true) {
       this.scheduleCacheRefresh();
