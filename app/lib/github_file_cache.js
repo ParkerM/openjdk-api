@@ -69,7 +69,7 @@ class GitHubFileCache {
 
   getReleaseDataFromGithub(repo) {
     return this.octokit
-      .paginate(`GET /repos/AdoptOpenJDK/${repo}/releases`, {
+      .paginate(`GET /repos/:owner/:repo/releases`, {
         owner: 'AdoptOpenJDK',
         repo: repo
       });
