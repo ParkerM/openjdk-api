@@ -52,40 +52,26 @@ class GitHubFileCache {
     }
   }
 
-  refreshCache(cache) {
+  refreshCache() {
     logger.info('Refresh at:', new Date());
 
-    return _.chain(this.repos)
-      .map(repo => this.getReleaseDataFromGithub(repo, cache))
-      .value();
+    return Promise
+      .all(this.repos.map(repo => this.getReleaseDataFromGithub(repo)
+        .then(data => this.cache[repo] = data)
+        .catch(err => logger.error(`Error refreshing cache for ${repo}: ${err}`)))
+      )
+      .then(() => logger.info('Cache refreshed'));
   }
 
   scheduleCacheRefresh() {
-    const refresh = () => {
-      try {
-        const cache = {};
-        Q.allSettled(this.refreshCache(cache))
-          .then(() => {
-            this.cache = cache;
-            logger.info("Cache refreshed")
-          })
-      } catch (e) {
-        logger.error(e)
-      }
-    };
-
-    new CronJob(getCooldown(this.auth), refresh, undefined, true, undefined, undefined, true);
+    new CronJob(getCooldown(this.auth), () => this.refreshCache(), undefined, true, undefined, undefined, true);
   }
 
-  getReleaseDataFromGithub(repo, cache) {
+  getReleaseDataFromGithub(repo) {
     return this.octokit
       .paginate(`GET /repos/AdoptOpenJDK/${repo}/releases`, {
         owner: 'AdoptOpenJDK',
         repo: repo
-      })
-      .then(data => {
-        cache[repo] = data;
-        return data;
       });
   }
 
@@ -93,7 +79,10 @@ class GitHubFileCache {
     const data = this.cache[repo];
 
     if (data === undefined) {
-      return this.getReleaseDataFromGithub(repo, this.cache)
+      return this.getReleaseDataFromGithub(repo)
+        .then(repoData => {
+          this.cache[repo] = repoData;
+        })
         .catch(error => {
           logger.error(`Error getting release data from GitHub: ${error}`);
           this.cache[repo] = [];
