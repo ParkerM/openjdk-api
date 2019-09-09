@@ -19,6 +19,7 @@ describe('GitHub file cache', () => {
 
   beforeEach(() => {
     Octokit.mockClear();
+    mockPaginate.mockClear();
     mockAuthService = {
       readAuthCreds: () => authToken,
     };
@@ -84,6 +85,39 @@ describe('GitHub file cache', () => {
       return cache.refreshCache(cache.cache).then(() => {
         expect(cache.cache).toHaveProperty(repoNameA, repoDataA);
         expect(cache.cache).toHaveProperty(repoNameB, repoDataB);
+      });
+    });
+  });
+
+  describe('cachedGet', () => {
+
+    const repoNameA = 'dummy-repo-a';
+    const repoNameB = 'dummy-repo-b';
+
+    beforeEach(() => {
+      cache = new GitHubFileCache(mockAuthService, disableCron);
+      cache.repos = [repoNameA, repoNameB];
+    });
+
+    it('returns cached data if exists', () => {
+      cache.cache[repoNameA] = {cachedData: 'I am some cached data'};
+
+      return cache.cachedGet(repoNameA).then(data => {
+        expect(mockPaginate).not.toHaveBeenCalled();
+        expect(data).toEqual({cachedData: 'I am some cached data'});
+      });
+    });
+
+    it('fetches uncached repo data and updates cache', () => {
+      expect(cache.cache).not.toHaveProperty(repoNameA);
+
+      const newRepoDataA = {uncachedData: 'Cache me if you can!'};
+      mockPaginate.mockReturnValue(Promise.resolve(newRepoDataA));
+
+      return cache.cachedGet(repoNameA).then(data => {
+        expect(mockPaginate).toHaveBeenCalled();
+        expect(data).toEqual(newRepoDataA);
+        expect(cache.cache).toHaveProperty(repoNameA, newRepoDataA);
       });
     });
   });

@@ -82,6 +82,7 @@ class GitHubFileCache {
       return this.getReleaseDataFromGithub(repo)
         .then(repoData => {
           this.cache[repo] = repoData;
+          return repoData;
         })
         .catch(error => {
           logger.error(`Error getting release data from GitHub: ${error}`);
